@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <!-- 讓 App 禁止使用者縮放，看起來更穩定 -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    
+    <!-- PWA / App 模式核心設定 -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="手搖炸彈">
+    <!-- App 圖示 (這會在加入桌面後顯示) -->
+    <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/3063/3063822.png">
+    
+    <title>手搖嘣嘣炸彈</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;700;900&display=swap" rel="stylesheet">
+    <style>
+        :root { --cat-color: #1a1a1a; }
+        body {
+            background: var(--theme-bg, linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%));
+            font-family: 'Noto Sans TC', sans-serif;
+            margin: 0; padding: 0; min-height: 100vh;
+            /* 禁止手機長按彈出選單，增加 App 感 */
+            -webkit-touch-callout: none;
+            -webkit-user-select: none;
+            user-select: none;
+            overflow: hidden; /* 防止主頁面橡皮筋滾動 */
+        }
+        
+        /* 讓內容可以在 App 內滾動 */
+        .scroll-container {
+            height: 100vh;
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+            padding-bottom: 120px;
+        }
+
+        #splash {
+            position: fixed; inset: 0; z-index: 2000;
+            background: linear-gradient(135deg, #bae6fd 0%, #7dd3fc 100%);
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            transition: transform 0.6s cubic-bezier(0.77, 0, 0.175, 1);
+        }
+
+        .day-cell {
+            min-height: 90px; border-bottom: 1px solid rgba(0,0,0,0.03); border-right: 1px solid rgba(0,0,0,0.03);
+            display: flex; flex-direction: column; padding: 4px;
+        }
+
+        .chip {
+            padding: 12px 2px; border-radius: 15px; font-size: 11px; font-weight: 900;
+            background: #f1f5f9; color: #94a3b8; text-align: center; border: 2px solid transparent;
+        }
+        .chip.active { background: #1e293b; color: white; border-color: #1e293b; }
+
+        #cat-btn {
+            position: fixed; bottom: 30px; right: 25px; width: 70px; height: 70px; z-index: 100;
+            filter: drop-shadow(0 8px 12px rgba(0,0,0,0.2));
+        }
+
+        .modal-bg { backdrop-filter: blur(15px); background: rgba(0,0,0,0.3); z-index: 1000; }
+        .sheet { border-radius: 35px 35px 0 0; transform: translateY(100%); transition: transform 0.4s cubic-bezier(0.1, 0.7, 0.1, 1); }
+        body.modal-open .sheet { transform: translateY(0); }
+
+        .page { display: none; }
+        .page.active { display: block; }
+    </style>
+</head>
+<body>
+
+    <div id="splash">
+        <div class="mb-8" id="splash-cat"></div>
+        <h1 class="text-white text-3xl font-black italic tracking-widest">DRINK BOOM</h1>
+        <button onclick="closeSplash()" class="mt-8 px-10 py-3 bg-white/20 border border-white/40 rounded-full text-white text-sm font-bold backdrop-blur-md">START</button>
+    </div>
+
+    <div class="scroll-container">
+        <!-- 內容保持與之前一致 -->
+        <div id="calendarPage" class="page active max-w-md mx-auto p-4">
+            <header class="text-center py-6">
+                <h1 class="text-2xl font-black text-slate-700 italic">🔥手搖嘣嘣炸彈🔥</h1>
+                <div class="flex justify-between items-center mt-6 bg-white/70 rounded-[25px] p-2 shadow-sm border border-white">
+                    <button onclick="changeMonth(-1)" class="w-10 h-10 text-slate-400 font-bold">◀</button>
+                    <div class="text-center">
+                        <div id="mName" class="text-lg font-black text-slate-700 italic">January</div>
+                        <div id="yName" class="text-[9px] text-slate-400 font-black tracking-widest">2026</div>
+                    </div>
+                    <button onclick="changeMonth(1)" class="w-10 h-10 text-slate-400 font-bold">▶</button>
+                </div>
+            </header>
+
+            <div class="bg-white/90 rounded-[35px] shadow-xl border-2 border-white overflow-hidden">
+                <div class="grid grid-cols-7 text-center py-3 bg-slate-50/50 text-[9px] font-black text-slate-400">
+                    <div>SUN</div><div>MON</div><div>TUE</div><div>WED</div><div>THU</div><div>FRI</div><div>SAT</div>
+                </div>
+                <div id="grid" class="grid grid-cols-7"></div>
+            </div>
+
+            <div class="mt-4 bg-slate-800 rounded-[30px] p-6 text-white flex justify-between items-center shadow-lg">
+                <div>
+                    <p class="text-[9px] opacity-50 font-black tracking-widest">MONTHLY</p>
+                    <p class="text-2xl font-black italic"><span id="statCups">0</span> 杯</p>
+                </div>
+                <div class="text-right">
+                    <p class="text-[9px] opacity-50 font-black tracking-widest">BUDGET</p>
+                    <p class="text-2xl font-black italic">$<span id="statCost">0</span></p>
+                </div>
+            </div>
+
+            <button onclick="showPage('reportPage')" class="w-full mt-4 py-4 bg-white/60 border border-white rounded-[20px] text-slate-600 font-black italic text-sm">
+                年度戰報 & 外觀設定 📊
+            </button>
+        </div>
+
+        <!-- 戰報頁 -->
+        <div id="reportPage" class="page max-w-md mx-auto p-6">
+            <h2 class="text-2xl font-black text-slate-700 italic text-center mb-6">年度戰報</h2>
+            <div class="grid grid-cols-2 gap-4 mb-6 text-center">
+                <div class="bg-white p-5 rounded-[25px] shadow-sm"><p class="text-[9px] text-slate-400 font-black">年度總量</p><p class="text-2xl font-black" id="totalCupsYear">0</p></div>
+                <div class="bg-white p-5 rounded-[25px] shadow-sm"><p class="text-[9px] text-slate-400 font-black">總支出</p><p class="text-xl font-black text-rose-500" id="totalCostYear">$0</p></div>
+            </div>
+            <div class="bg-white p-6 rounded-[30px] shadow-sm mb-6">
+                <p class="text-[9px] text-slate-400 font-black mb-4 text-center">外觀更換</p>
+                <div class="grid grid-cols-3 gap-2">
+                    <div onclick="setTheme('#1a1a1a','linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%)')" class="bg-slate-50 p-2 rounded-2xl text-center cursor-pointer border-2" id="t1"><div class="w-8 h-8 bg-black rounded-full mx-auto"></div></div>
+                    <div onclick="setTheme('#ffb6c1','linear-gradient(135deg, #fff1f2 0%, #ffe4e6 100%)')" class="bg-slate-50 p-2 rounded-2xl text-center cursor-pointer border-2" id="t2"><div class="w-8 h-8 bg-pink-300 rounded-full mx-auto"></div></div>
+                    <div onclick="setTheme('#94a3b8','linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)')" class="bg-slate-50 p-2 rounded-2xl text-center cursor-pointer border-2" id="t3"><div class="w-8 h-8 bg-slate-400 rounded-full mx-auto"></div></div>
+                </div>
+            </div>
+            <button onclick="showPage('calendarPage')" class="w-full py-4 bg-slate-800 text-white rounded-[20px] font-black italic">返回日曆</button>
+        </div>
+    </div>
+
+    <!-- 貓咪按鈕 -->
+    <div id="cat-btn" onclick="catReact()"><div id="cat-svg-box"></div></div>
+
+    <!-- 編輯抽屜 -->
+    <div id="modal" class="fixed inset-0 hidden z-[1000] modal-bg flex items-end">
+        <div class="sheet bg-white w-full p-6 pb-10">
+            <div class="flex justify-between items-center mb-6">
+                <h3 id="curDate" class="text-xl font-black text-slate-700">2026-01-01</h3>
+                <button onclick="closeModal()" class="w-10 h-10 bg-slate-100 rounded-full text-slate-400">✕</button>
+            </div>
+            <div id="list" class="mb-6 space-y-2 max-h-40 overflow-y-auto"></div>
+            <div class="space-y-4">
+                <div class="grid grid-cols-2 gap-2">
+                    <input id="inS" placeholder="店家" class="bg-slate-100 p-4 rounded-xl text-sm outline-none">
+                    <input id="inI" placeholder="飲品" class="bg-slate-100 p-4 rounded-xl text-sm outline-none">
+                </div>
+                <div class="grid grid-cols-2 gap-2">
+                    <input id="inP" type="number" placeholder="價格" class="bg-slate-100 p-4 rounded-xl text-sm outline-none">
+                    <button onclick="saveRec()" class="bg-slate-800 text-white rounded-xl font-black">新增 💣</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const KEY = 'drink_boom_final';
+        const CFG = 'drink_boom_cfg';
+        let db = JSON.parse(localStorage.getItem(KEY)) || {};
+        let config = JSON.parse(localStorage.getItem(CFG)) || { cat: '#1a1a1a', bg: 'linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%)' };
+        let now = new Date(2026, 0, 1), curKey = "";
+
+        function getSvg(s, c) {
+            return `<svg width="${s}" height="${s}" viewBox="0 0 100 100"><circle cx="45" cy="55" r="28" fill="${c}"/><circle cx="32" cy="35" r="9" fill="${c}"/><circle cx="58" cy="35" r="9" fill="${c}"/><circle cx="38" cy="53" r="2.5" fill="white"/><circle cx="52" cy="53" r="2.5" fill="white"/><g transform="translate(8,8)"><path d="M57 30 L57 50" stroke="${c}" stroke-width="5"/><path d="M57 30 L57 50" stroke="#f1f5f9" stroke-width="2.5"/><path d="M42 50 L72 50 L69 85 Q68 90 64 90 L50 90 Q46 90 45 85 L42 50 Z" fill="#fff" stroke="${c}" stroke-width="2.5"/><path d="M40 50 L74 50 L74 57 L40 57 Z" fill="${c}" rx="2"/></g></svg>`;
+        }
+
+        function applyTheme() {
+            document.body.style.background = config.bg;
+            document.getElementById('splash-cat').innerHTML = getSvg(150, config.cat);
+            document.getElementById('cat-svg-box').innerHTML = getSvg(70, config.cat);
+            renderGrid();
+        }
+
+        function setTheme(c, b) {
+            config = { cat: c, bg: b };
+            localStorage.setItem(CFG, JSON.stringify(config));
+            applyTheme();
+        }
+
+        function renderGrid() {
+            const g = document.getElementById('grid'); g.innerHTML = '';
+            const y = now.getFullYear(), m = now.getMonth();
+            document.getElementById('mName').innerText = ["January","February","March","April","May","June","July","August","September","October","November","December"][m];
+            document.getElementById('yName').innerText = y;
+            const start = new Date(y, m, 1).getDay();
+            const days = new Date(y, m + 1, 0).getDate();
+            const drink = `<svg width="18" height="18" viewBox="0 0 100 100"><path d="M57 30 L57 50" stroke="${config.cat}" stroke-width="6"/><path d="M42 50 L72 50 L69 85 Q68 90 64 90 L50 90 L45 85 Z" fill="#fff" stroke="${config.cat}" stroke-width="5"/><path d="M40 50 L74 50 L74 58 L40 58 Z" fill="${config.cat}" rx="2"/></svg>`;
+
+            for(let i=0; i<start; i++) g.innerHTML += '<div class="day-cell opacity-0"></div>';
+            for(let d=1; d<=days; d++) {
+                const k = `${y}-${m+1}-${d}`, items = db[k] || [];
+                const cell = document.createElement('div');
+                cell.className = "day-cell"; cell.onclick = () => openModal(k);
+                cell.innerHTML = `<span class="text-[10px] font-black text-slate-300">${d}</span><div class="flex flex-wrap gap-0.5 mt-1">${items.map(()=>drink).join('')}</div>`;
+                g.appendChild(cell);
+            }
+            updateStats(m);
+        }
+
+        function updateStats(m) {
+            let c=0, s=0, y=now.getFullYear();
+            Object.keys(db).forEach(k => { if(k.startsWith(`${y}-${m+1}-`)) db[k].forEach(x=>{c++;s+=Number(x.p)}); });
+            document.getElementById('statCups').innerText = c;
+            document.getElementById('statCost').innerText = s.toLocaleString();
+        }
+
+        function saveRec() {
+            const s=document.getElementById('inS').value, i=document.getElementById('inI').value, p=document.getElementById('inP').value;
+            if(!s||!i||!p) return;
+            if(!db[curKey]) db[curKey] = [];
+            db[curKey].push({s,i,p});
+            localStorage.setItem(KEY, JSON.stringify(db));
+            refreshList(); renderGrid();
+            ['inS','inI','inP'].forEach(id=>document.getElementById(id).value='');
+        }
+
+        function delRec(idx) {
+            db[curKey].splice(idx,1); if(!db[curKey].length) delete db[curKey];
+            localStorage.setItem(KEY, JSON.stringify(db));
+            refreshList(); renderGrid();
+        }
+
+        function refreshList() {
+            const l = document.getElementById('list');
+            l.innerHTML = (db[curKey]||[]).map((x,i)=>`<div class="flex justify-between items-center bg-slate-50 p-3 rounded-xl border"><div><div class="font-black text-xs">${x.s} · ${x.i}</div><div class="text-[9px] text-slate-400">$${x.p}</div></div><button onclick="delRec(${i})" class="text-rose-300">✕</button></div>`).join('');
+        }
+
+        function openModal(k) { curKey = k; document.getElementById('curDate').innerText = k; document.getElementById('modal').classList.remove('hidden'); setTimeout(()=>document.body.classList.add('modal-open'),10); refreshList(); }
+        function closeModal() { document.body.classList.remove('modal-open'); setTimeout(()=>document.getElementById('modal').classList.add('hidden'),400); }
+        function showPage(p) { document.querySelectorAll('.page').forEach(pg=>pg.classList.remove('active')); document.getElementById(p).classList.add('active'); if(p==='reportPage') renderReport(); }
+        function renderReport() {
+            let c=0, s=0, y=now.getFullYear();
+            Object.keys(db).forEach(k => { if(k.startsWith(`${y}-`)) db[k].forEach(x=>{c++;s+=Number(x.p)}); });
+            document.getElementById('totalCupsYear').innerText = c;
+            document.getElementById('totalCostYear').innerText = '$'+s.toLocaleString();
+        }
+        function changeMonth(n) { now.setMonth(now.getMonth()+n); renderGrid(); }
+        function closeSplash() { document.getElementById('splash').style.transform = 'translateY(-100%)'; }
+        function catReact() { const b=document.getElementById('cat-btn'); b.style.transform='scale(1.2)'; setTimeout(()=>b.style.transform='scale(1)',200); }
+
+        window.onload = () => { applyTheme(); };
+    </script>
+</body>
+</html>
+
